@@ -26,6 +26,9 @@ jobs:
           distribution: temurin
           java-version: '8'
           cache: maven
+          
+      - name: Run JUnit + Mockito tests
+        run: mvn test
 
       - name: Build Maven project
         run: mvn clean package -DskipTests
