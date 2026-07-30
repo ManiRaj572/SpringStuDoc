@@ -2,7 +2,7 @@ FROM eclipse-temurin:8-jre
 
 WORKDIR /app
 
-COPY target/SpringStuDoc-0.0.1-SNAPSHOT.jar app.jar
+COPY target/SpringStuDoc.jar app.jar
 
 EXPOSE 8099
 
