@@ -28,12 +28,7 @@ jobs:
 
       - name: Build Maven project
         run: mvn clean package
-
-      - name: Build Docker image
-        run: docker build -t springstudoc .
-      - name: Build Maven project
-        run: mvn clean package
-      
+        
       - name: Build Docker image
         run: docker build -t springstudoc .
       
