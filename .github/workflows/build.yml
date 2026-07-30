@@ -31,14 +31,3 @@ jobs:
         
       - name: Build Docker image
         run: docker build -t springstudoc .
-      
-      - name: Stop old container
-        run: docker stop springstudoc-container
-        continue-on-error: true
-      
-      - name: Remove old container
-        run: docker rm springstudoc-container
-        continue-on-error: true
-      
-      - name: Run new container
-        run: docker run -d -p 8099:8099 --name springstudoc-container springstudoc
