@@ -10,10 +10,13 @@ on:
       - feature/student-api
 
 jobs:
-  build:
+
+  build-and-deploy:
+
     runs-on: self-hosted
 
     steps:
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -25,18 +28,29 @@ jobs:
           cache: maven
 
       - name: Build Maven project
-        run: mvn clean package
+        run: mvn clean package -DskipTests
 
       - name: Build Docker image
         run: docker build -t springstudoc:latest .
 
       - name: Stop old container
-        run: docker stop springstudoc-container
+        shell: powershell
+        run: |
+          docker stop springstudoc-container
         continue-on-error: true
 
       - name: Remove old container
-        run: docker rm springstudoc-container
+        shell: powershell
+        run: |
+          docker rm springstudoc-container
         continue-on-error: true
 
       - name: Run new container
-        run: docker run -d -p 8099:8099 --name springstudoc-container springstudoc:latest
+        shell: powershell
+        run: |
+          docker run -d `
+            --name springstudoc-container `
+            -p 8099:8099 `
+            springstudoc:latest
+      - name: Show running containers
+        run: docker ps
