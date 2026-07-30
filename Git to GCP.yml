@@ -1,0 +1,168 @@
+
+
+# Git push → Maven → Test → Docker build → Artifact Registry → Cloud Run
+
+# git push
+#    ↓
+# GitHub Actions
+#    ↓
+# Java 8
+#    ↓
+# Maven
+#    ↓
+# SpringStuDoc.jar
+#    ↓
+# Docker Build
+#    ↓
+# Docker Image
+#    ↓
+# Google Artifact Registry
+#    ↓
+# Cloud Run
+#    ↓
+# SpringStuDoc running
+#    ↓
+# HTTPS URL
+
+name: Spring Boot CI/CD - GCP
+
+on:
+  push:
+    branches:
+      - feature/student-api
+
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION }}
+  REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+  IMAGE_NAME: springstudoc
+  SERVICE_NAME: springstudoc
+
+jobs:
+  build-and-deploy:
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+
+      # ==========================================
+      # 1. Checkout source code
+      # ==========================================
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+
+      # ==========================================
+      # 2. Setup Java 8
+      # ==========================================
+
+      - name: Setup Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: maven
+
+
+      # ==========================================
+      # 3. Build Spring Boot application
+      # ==========================================
+
+      - name: Build Maven project
+        run: |
+          mvn clean package -DskipTests
+
+
+      # ==========================================
+      # 4. Run tests
+      # ==========================================
+
+      - name: Run tests
+        run: |
+          mvn test
+
+
+      # ==========================================
+      # 5. Authenticate GitHub Actions → GCP
+      # ==========================================
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+
+      # ==========================================
+      # 6. Setup Google Cloud CLI
+      # ==========================================
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+
+      # ==========================================
+      # 7. Configure Docker
+      # ==========================================
+
+      - name: Configure Docker authentication
+        run: |
+          gcloud auth configure-docker \
+            ${{ env.REGION }}-docker.pkg.dev \
+            --quiet
+
+
+      # ==========================================
+      # 8. Build Docker image
+      # ==========================================
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest \
+            .
+
+
+      # ==========================================
+      # 9. Push Docker image to Artifact Registry
+      # ==========================================
+
+      - name: Push Docker image
+        run: |
+          docker push \
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+          docker push \
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
+
+
+      # ==========================================
+      # 10. Deploy Docker image to Cloud Run
+      # ==========================================
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated
+
+
+      # ==========================================
+      # 11. Display Cloud Run URL
+      # ==========================================
+
+      - name: Show Cloud Run URL
+        run: |
+          gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format="value(status.url)"
