@@ -11,9 +11,10 @@ public class HelloController {
 	public String greet() {
 		return "Hello Gen";
 	}
+	
 	@GetMapping("/hello")
 	public String hello() {
 		return "Hello from new feature";
 	}
-	
+
 }
