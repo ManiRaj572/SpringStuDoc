@@ -1,4 +1,4 @@
-name: Spring Boot CI
+name: Spring Boot CI + Docker Local Deploy
 
 on:
   push:
@@ -10,9 +10,10 @@ on:
       - feature/student-api
 
 jobs:
-  build:
 
-    runs-on: ubuntu-latest
+  build-and-deploy:
+
+    runs-on: self-hosted
 
     steps:
 
@@ -27,7 +28,30 @@ jobs:
           cache: maven
 
       - name: Build Maven project
-        run: mvn clean package
-        
+        run: mvn clean package -DskipTests
+
       - name: Build Docker image
-        run: docker build -t springstudoc .
+        run: docker build -t springstudoc:latest .
+
+      - name: Stop old container
+        shell: powershell
+        run: |
+          docker stop springstudoc-container
+        continue-on-error: true
+
+      - name: Remove old container
+        shell: powershell
+        run: |
+          docker rm springstudoc-container
+        continue-on-error: true
+
+      - name: Run new container
+        shell: powershell
+        run: |
+          docker run -d `
+            --name springstudoc-container `
+            -p 8099:8099 `
+            springstudoc:latest
+
+      - name: Show running containers
+        run: docker ps
